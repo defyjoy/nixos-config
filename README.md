@@ -254,3 +254,41 @@ sudo nixos-rebuild switch
 * If your config path hardcodes `/home/jroychowdhury/...`, it will work as long as the username matches. If you want it portable across machines/users, we can switch to a flake-based host layout or use templating.
 
 If you paste your current repo’s `~/.config/nixos/` tree (file names only), I’ll give you the exact minimal stub + import wiring that matches your structure.
+
+## Commands 
+```
+# 0) become your user (first boot) and get network working
+
+# 1) get git + chezmoi for this session
+nix-shell -p git chezmoi
+
+# 2) init chezmoi from your repo (this will create/populate ~/.local/share/chezmoi)
+chezmoi init https://github.com/defyjoy/nixos-config.git --apply
+
+# 3) sanity-check chezmoi is using your home source dir
+chezmoi source-path
+
+# 4) ensure your nixos config directory exists (in case repo expects it)
+mkdir -p ~/.config/nixos
+
+# 5) create /etc/nixos/configuration.nix stub that imports your home-managed config
+# (If your repo uses ~/.config/nixos/host.nix keep this as-is; otherwise change host.nix -> configuration.nix)
+sudo tee /etc/nixos/configuration.nix >/dev/null <<'EOF'
+{ config, pkgs, ... }:
+{
+  imports = [
+    /home/jroychowdhury/.config/nixos/host.nix
+  ];
+}
+EOF
+
+# 6) copy this machine's generated hardware config into your home-managed nixos config
+sudo cp /etc/nixos/hardware-configuration.nix /home/jroychowdhury/.config/nixos/hardware-configuration.nix
+sudo chown jroychowdhury:users /home/jroychowdhury/.config/nixos/hardware-configuration.nix
+
+# 7) apply the system configuration
+sudo nixos-rebuild switch
+
+# 8) (optional) if you use standalone home-manager (not NixOS module), apply it too:
+# nix-shell -p home-manager --run "home-manager switch"
+```
