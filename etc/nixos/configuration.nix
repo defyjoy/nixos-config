@@ -13,7 +13,8 @@ in
       (import "${home-manager}/nixos")
     ];
   programs.zsh.enable = true;
-  
+  nixpkgs.config.allowUnfree = true;
+
 
   home-manager.useUserPackages = true;
   home-manager.useGlobalPkgs = true;

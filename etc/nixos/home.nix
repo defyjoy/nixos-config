@@ -1,11 +1,10 @@
 { config, pkgs , ...}:
 
 {
-   home.username = "jroychowdhury";
-   home.homeDirectory = "/home/jroychowdhury";
-   home.stateVersion = "25.11";
-
-   
+  home.username = "jroychowdhury";
+  home.homeDirectory = "/home/jroychowdhury";
+  home.stateVersion = "25.11";
+ 
   programs.zsh = {
     enable = true;
 
@@ -29,6 +28,7 @@
     	plugins = [
       	  "git"
       	  "globalias"
+          "fzf"
     	];
 		theme = "fino-time";
     };
@@ -39,10 +39,12 @@
     oh-my-zsh
     firefox
 
+    fzf
     snapper
     btrfs-assistant
     btrfs-list
     btrfs-auto-snapshot
     snapper-gui
+    code-cursor
   ];
 }
