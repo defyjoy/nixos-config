@@ -52,13 +52,13 @@ in
   systemd.services.snapperd.wantedBy = [ "multi-user.target" ];
   systemd.services.snapperd.serviceConfig.Restart = "always";
 
-  services.snapper.configs.root = {
-    SUBVOLUME = "/";
-    FSTYPE = "btrfs";
-    TIMELINE_CREATE = true;
-    TIMELINE_CLEANUP = true;
-    NUMBER_CLEANUP = true;
-  };
+  # services.snapper.configs.root = {
+  #  SUBVOLUME = "/";
+  #  FSTYPE = "btrfs";
+  #  TIMELINE_CREATE = true;
+  #  TIMELINE_CLEANUP = true;
+  #  NUMBER_CLEANUP = true;
+  #};
 
   # fileSystems."/.snapshots" = {
   #  device = "/dev/disk/by-uuid/d34b8e9-9ffc-4ada-9e02-836010c8049c";
