@@ -122,6 +122,7 @@ in
    micro
    neovim
    chezmoi
+   eza
    fzf
    kdePackages.kate
   ];

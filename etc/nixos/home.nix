@@ -40,12 +40,38 @@
     firefox
 
     ## terminal utility
-    jq
+    jq # json query
+    jid # interactive tool to build jq queries
+    yq # same as jq but for yaml
     fzf
+    tldr
+    tmux # terminal multiplexer
+    musikcube # terminal multiplexer
+    ripgrep
+    dua
+    btop
+    ipcalc
+    lm_sensors
+    wget
+    curl
+    ndcu
+
+
+    # kubernetes
+    k9s
+    kubectx
+
+    # entertainment
+    musikcube
     
     # editors 
     alacritty
     kitty
+
+    ## ssh
+    lazyssh
+    lazygit
+
     
     ## system btrfs
     snapper
