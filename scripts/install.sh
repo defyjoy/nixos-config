@@ -18,6 +18,9 @@ sudo nixos-generate-config --root /mnt --show-hardware-config > /mnt/etc/nixos/h
 echo "installing nixos to /mnt"
 sudo nixos-install --root /mnt
 
+echo "setting password for user(jroychowdhury)"
+nixos-enter --root /mnt -c 'passwd jroychowdhury'
+
 echo "rebooting"
 sudo reboot
 
