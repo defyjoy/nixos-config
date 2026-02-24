@@ -1,11 +1,11 @@
 echo "mounting /dev/sda3 to /mnt"
 sudo mount /dev/sda3 /mnt
 
-echo "installing git and chezmoi"
-sudo nix-shell -p git chezmoi
+# echo "installing git and chezmoi"
+# sudo nix-shell -p git chezmoi
 
-echo "initializing chezmoi"
-chezmoi init --apply opsquark # this would clone into ~/.local/share/chezmoi in nixos iso home directory
+# echo "initializing chezmoi"
+# chezmoi init --apply opsquark # this would clone into ~/.local/share/chezmoi in nixos iso home directory
 
 echo "mounting home, boot, and efivarfs"
 sudo mount --mkdir /dev/sda2 /mnt/home

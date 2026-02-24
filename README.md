@@ -3,6 +3,15 @@ Perfect — then the rule is:
 * **Run `chezmoi add` as user `jroychowdhury`** (so it writes into `/home/jroychowdhury/.local/share/chezmoi`)
 * Use **sudo only for apply** (to write into `/etc`), and (optionally) for read access if `/etc/nixos` permissions block you.
 
+## Getting started
+
+On a new machine, install git and chezmoi via Nix, then init and apply this repo:
+
+```bash
+sudo nix-shell -p git chezmoi
+chezmoi init --apply opsquark
+```
+
 Do this:
 
 ## 1) Confirm your user chezmoi repo path
@@ -121,13 +130,8 @@ Here’s the clean “new machine bootstrap” flow when you keep the *real* Nix
 You can do this right after first boot.
 
 ```bash
-nix-shell -p git chezmoi
-```
-
-Then:
-
-```bash
-chezmoi init <YOUR_REPO_URL> --apply
+sudo nix-shell -p git chezmoi
+chezmoi init --apply opsquark
 ```
 
 This will populate your dotfiles into your home, including `~/.config/nixos/...` (because your repo contains it).
@@ -229,8 +233,8 @@ Assuming:
 * you want to copy the new machine’s hardware file into `~/.config/nixos/`
 
 ```bash
-nix-shell -p git chezmoi --run '
-chezmoi init <YOUR_REPO_URL> --apply
+sudo nix-shell -p git chezmoi --run '
+chezmoi init --apply opsquark
 sudo tee /etc/nixos/configuration.nix >/dev/null <<EOF
 { config, pkgs, ... }:
 {
@@ -260,10 +264,10 @@ If you paste your current repo’s `~/.config/nixos/` tree (file names only), I�
 # 0) become your user (first boot) and get network working
 
 # 1) get git + chezmoi for this session
-nix-shell -p git chezmoi
+sudo nix-shell -p git chezmoi
 
 # 2) init chezmoi from your repo (this will create/populate ~/.local/share/chezmoi)
-chezmoi init https://github.com/defyjoy/nixos-config.git --apply
+chezmoi init --apply opsquark
 
 # 3) sanity-check chezmoi is using your home source dir
 chezmoi source-path
