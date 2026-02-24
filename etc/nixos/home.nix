@@ -55,6 +55,7 @@
     wget
     curl
     ncdu
+    kubectl
 
 
     # kubernetes
