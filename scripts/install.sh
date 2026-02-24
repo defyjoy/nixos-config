@@ -1,5 +1,9 @@
-echo "mounting /dev/sda3 to /mnt"
-sudo mount /dev/sda3 /mnt
+if ! mountpoint -q /mnt; then
+  echo "mounting /dev/sda3 to /mnt"
+  sudo mount /dev/sda3 /mnt
+else
+  echo "/mnt already mounted, skipping"
+fi
 
 # echo "installing git and chezmoi"
 # sudo nix-shell -p git chezmoi
@@ -7,10 +11,24 @@ sudo mount /dev/sda3 /mnt
 # echo "initializing chezmoi"
 # chezmoi init --apply opsquark # this would clone into ~/.local/share/chezmoi in nixos iso home directory
 
-echo "mounting home, boot, and efivarfs"
-sudo mount --mkdir /dev/sda2 /mnt/home
-sudo mount --mkdir /dev/sda1 /mnt/boot
-sudo mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+if ! mountpoint -q /mnt/home; then
+  echo "mounting /dev/sda2 to /mnt/home"
+  sudo mount --mkdir /dev/sda2 /mnt/home
+else
+  echo "/mnt/home already mounted, skipping"
+fi
+if ! mountpoint -q /mnt/boot; then
+  echo "mounting /dev/sda1 to /mnt/boot"
+  sudo mount --mkdir /dev/sda1 /mnt/boot
+else
+  echo "/mnt/boot already mounted, skipping"
+fi
+if ! mountpoint -q /sys/firmware/efi/efivars; then
+  echo "mounting efivarfs"
+  sudo mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+else
+  echo "efivarfs already mounted, skipping"
+fi
 
 echo "applying chezmoi configuration"
 sudo chezmoi apply --source ~/.local/share/chezmoi --destination /mnt
