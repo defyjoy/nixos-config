@@ -1,4 +1,4 @@
-# Single-disk UEFI layout: 1G ESP + ext4 root. Swap is zram (configuration.nix).
+# Single-disk UEFI layout: 1G ESP + btrfs (subvolumes like CachyOS). Swap is zram (configuration.nix).
 {
   disko.devices.disk.main = {
     type = "disk";
@@ -19,9 +19,20 @@
         root = {
           size = "100%";
           content = {
-            type = "filesystem";
-            format = "ext4";
-            mountpoint = "/";
+            type = "btrfs";
+            extraArgs = [ "-f" ];
+            subvolumes =
+              let
+                opts = [ "compress=zstd" "noatime" ];
+              in
+              {
+                "@" = { mountpoint = "/"; mountOptions = opts; };
+                "@home" = { mountpoint = "/home"; mountOptions = opts; };
+                # snapper's `home` config needs /home/.snapshots to be a subvolume
+                "@home-snapshots" = { mountpoint = "/home/.snapshots"; mountOptions = opts; };
+                "@nix" = { mountpoint = "/nix"; mountOptions = opts; };
+                "@log" = { mountpoint = "/var/log"; mountOptions = opts; };
+              };
           };
         };
       };

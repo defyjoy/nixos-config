@@ -1,24 +1,51 @@
 # nixos-config
 
-My NixOS machine as a flake: GNOME desktop, zsh + oh-my-zsh + starship + atuin, git/ssh/gpg
-identities, and the CLI/GUI tools from my Mac, ported from my macOS dotfiles.
+My CachyOS desktop rebuilt on NixOS: the **Niri** compositor and **Noctalia** shell with every config
+from [defyjoy/.dotfiles](https://github.com/defyjoy/.dotfiles). That covers fish + starship, Alacritty,
+Material You colours taken from the wallpaper, Firefox/Zen, and the YubiKey for SSH and GPG. My Mac
+CLI tools come along too, with zsh and git.
 
-`install.sh` wipes a disk, partitions it with [disko](https://github.com/nix-community/disko),
-installs the system and sets the password. It asks two questions at the start (confirm the
-disk, choose a password) and runs unattended after that.
+`install.sh` wipes a disk and partitions it with [disko](https://github.com/nix-community/disko) (btrfs).
+It then installs the system and sets your password. It asks two questions up front (confirm the disk,
+choose a password) and then runs unattended.
 
 | File | What it is |
 |------|------------|
-| `flake.nix` / `flake.lock` | Inputs pinned to NixOS 26.05, home-manager 26.05, disko |
-| `configuration.nix` | System: boot, GNOME, user, sshd, docker, ollama, YubiKey, fonts |
-| `home.nix` | User environment (home-manager): packages, zsh, git, ssh, gpg, dotfiles |
-| `disko.nix` | Disk layout: GPT, 1 GB EFI `/boot`, ext4 `/` (swap is zram) |
+| `flake.nix` / `flake.lock` | Pinned inputs: NixOS 26.05, home-manager, disko, Noctalia 5.6, Zen, `.dotfiles`, CachyOS fish config |
+| `configuration.nix` | Base system: boot, user `defyjoy`, locale `en_IN`, DNS-over-TLS, sshd, YubiKey, snapper, docker |
+| `desktop.nix` | Desktop system side: niri, Noctalia, cosmic-greeter, PipeWire, Solaar, Steam, fonts, cursors/icons |
+| `nvidia.nix` | RTX 4070 Super (open driver, PowerMizer fix, container toolkit). Only used when `gpu.nix` imports it |
+| `gpu.nix` | Empty by default; `install.sh` makes it import `nvidia.nix` if the machine has an NVIDIA GPU |
+| `home.nix` | From the Mac: CLI packages, zsh + oh-my-zsh, git signing, gpg-agent, tmux/ghostty/zed |
+| `home-desktop.nix` | Desktop user side: puts the `.dotfiles` `home/` tree in place, plus Firefox chrome, gsettings, Zen and desktop apps |
+| `disko.nix` | GPT, 1 GB EFI `/boot`, btrfs subvolumes `@ @home @home-snapshots @nix @log` (zstd), zram swap |
 | `hardware-configuration.nix` | Placeholder; `install.sh` regenerates it on the target |
-| `files/` | Dotfiles copied verbatim from the Mac (starship, tmux, ghostty, zed, `git-use`) |
 | `install.sh` | The installer |
 
-No secrets live in this repo. Private keys, kubeconfigs and private SSH hosts are copied over
-by hand in [step 5](#5-bring-over-secrets).
+## How the dotfiles are applied
+
+The `.dotfiles` repo is a flake input, pinned in `flake.lock`. Its `home/` tree is **copied** into
+`~`, not symlinked, because Noctalia and Solaar rewrite their own configs (colours, `settings.toml`,
+Solaar state). CachyOS paths are swapped for NixOS ones on the way in:
+
+| In `.dotfiles` | On NixOS |
+|---|---|
+| `/usr/share/cachyos-fish-config` | `/etc/cachyos-fish-config` (CachyOS's repo, pinned) |
+| `/usr/lib/node_modules/alacritty-themes/themes` | `/etc/alacritty-themes` |
+| `/usr/share/icons` (cursor-theme) | `/run/current-system/sw/share/icons` |
+| `zen-browser` / `zen.desktop` | `zen-beta` / `zen-beta.desktop` |
+| `/usr/bin/noctalia` (Pywalfox host) | Noctalia from the flake (home-manager writes the manifest) |
+| `.gnupg/gpg-agent.conf` | home-manager `services.gpg-agent`, with the same settings |
+| `.zshrc` (CachyOS zsh) | home-manager zsh from `home.nix` |
+| `/etc` files, gsettings, packages | Nix options in `configuration.nix`, `desktop.nix`, `nvidia.nix`, `home-desktop.nix` |
+
+- **Every rebuild** copies over any file you don't have yet. It never overwrites files that already exist.
+- **`dotfiles-apply`** forcibly copies the pinned `.dotfiles` over your live files. Each file it replaces
+  is backed up to `~/.dotfiles-backup/<date>/`.
+- **To pull new `.dotfiles` commits:**
+  `nix flake update dotfiles && sudo nixos-rebuild switch --flake .#nixos && dotfiles-apply`
+
+No secrets live in this repo or in `.dotfiles`. Keys, kubeconfigs and wallpapers are brought over by hand.
 
 ---
 
@@ -27,17 +54,23 @@ by hand in [step 5](#5-bring-over-secrets).
 ### 0. Before you start
 
 You need:
-- A target machine or VM that boots in **UEFI** mode (x86_64 or aarch64). systemd-boot doesn't
-  support legacy BIOS.
+- A **UEFI** machine or VM, x86_64 (Steam and Chrome are x86_64-only; aarch64 works without them).
 - A disk you're happy to **erase completely**.
 - Internet on the target. Wired is easiest.
-- The YubiKey (`defyjoy-yubikey`). After install it's the only way to SSH in, and it holds the
-  GPG signing key.
+- The YubiKey: it's the only way to SSH in, and it holds your GitHub SSH key and GPG signing key.
+- Your wallpapers (~80 MB, `~/Pictures/Wallpapers` on the CachyOS box). Noctalia's colours come from them.
+
+NVIDIA is optional: `install.sh` turns on `nvidia.nix` only if it finds an NVIDIA card. Apple Silicon,
+AMD/Intel machines and VMs get no NVIDIA config.
+
+**Apple Silicon (e.g. M1 Ultra Mac Studio):** the standard NixOS ISO can't boot a Mac on bare metal.
+Install into a VM on macOS instead (UTM or VMware Fusion, aarch64 ISO, UEFI), and the steps below
+work unchanged. A bare-metal install needs Asahi Linux via
+[nixos-apple-silicon](https://github.com/nix-community/nixos-apple-silicon), which this repo doesn't set up.
 
 ### 1. Make the installer USB (or VM)
 
-Download the **Minimal ISO** for NixOS 26.05 from <https://nixos.org/download/#nixos-iso>
-(x86_64 or aarch64, matching the target).
+Download the **Minimal ISO** for NixOS 26.05 from <https://nixos.org/download/#nixos-iso>.
 
 **USB stick, written from the Mac:**
 
@@ -49,11 +82,8 @@ sudo dd if=~/Downloads/nixos-minimal-*.iso of=/dev/rdisk4 bs=4m status=progress
 
 In the target's firmware, turn **Secure Boot off** and boot from the stick.
 
-**Proxmox VM:** upload the ISO, then create the VM with:
-- Machine **q35**, BIOS **OVMF (UEFI)**
-- An EFI disk with **Pre-Enroll keys unchecked**
-- SCSI controller **VirtIO SCSI** (the disk then appears as `/dev/sda`)
-- At least 4 GB RAM and a 40 GB disk
+**Proxmox VM:** machine **q35**, BIOS **OVMF (UEFI)**, EFI disk with **Pre-Enroll keys unchecked**,
+**VirtIO SCSI** (disk shows up as `/dev/sda`), at least 8 GB RAM and a 60 GB disk.
 
 ### 2. Get online on the installer
 
@@ -74,84 +104,68 @@ Check with `ping -c1 nixos.org`.
 ### 3. Install
 
 ```sh
-lsblk -d -o NAME,SIZE,MODEL           # pick the target disk, e.g. nvme0n1 or sda
+lsblk -d -o NAME,SIZE,MODEL           # pick the target disk, e.g. nvme0n1
 nix-shell -p git --run 'git clone https://github.com/defyjoy/nixos-config'
 cd nixos-config
 sudo ./install.sh /dev/nvme0n1        # use your disk from lsblk
 ```
 
 What happens:
-1. **You answer two prompts:** retype the disk path to confirm the wipe, then set the password
-   for `joydeep`.
-2. The disk path is written into `disko.nix`, then the disk is wiped, partitioned, formatted and
-   mounted at `/mnt`.
+1. **You answer two prompts:** retype the disk path to confirm the wipe, then set the password for `defyjoy`.
+2. The disk is wiped and set up as btrfs with subvolumes, then mounted at `/mnt`.
 3. `hardware-configuration.nix` is generated for this machine.
-4. The repo is copied to `/home/joydeep/nixos-config` and `nixos-install` builds the system.
-   This takes 10–30 minutes, depending on your connection.
+4. The repo is copied to `/home/defyjoy/nixos-config` and `nixos-install` builds the system. Expect
+   **20–40 minutes**: Noctalia is compiled from source because the binary cache doesn't have it.
 5. Your password is set. Root stays locked, so use `sudo`.
 
-When it prints `Done`, remove the USB stick (or detach the ISO) and run `reboot`.
+When it prints `Done`, remove the USB stick and run `reboot`.
 
-### 4. First boot
+### 4. First login
 
-Log in to GNOME as `joydeep`. Home-manager links your dotfiles during boot, so the first
-terminal already has zsh, starship and atuin.
+At **cosmic-greeter**, pick the **niri** session and log in as `defyjoy`. Noctalia (bar and dock) and
+Solaar start on their own. Key bindings are unchanged from CachyOS:
 
-Find the machine's IP for the next step: `ip -4 addr` (or look in GNOME Settings → Network).
+- `Mod+Return`: Alacritty
+- `Mod+D`: launcher
+- `Mod+S`: control centre
+- `Mod+B` / `Ctrl+B`: Firefox / Zen
+- `Mod+Shift+Escape`: all hotkeys
 
-Check that it worked:
+Then:
 
-```sh
-systemctl status home-manager-joydeep   # should be "active (exited)"
-docker run --rm hello-world
-```
+1. **Wallpapers.** Copy them into `~/Pictures/Wallpapers` (e.g. `scp -r` from the old box). Noctalia's
+   `settings.toml` points at `uwshot-1341.jpg` in there. Until that file exists you'll have no
+   wallpaper and default colours.
+2. **Display.** Run `niri msg outputs`. `~/.config/niri/cfg/display.kdl` expects the G9 on `DP-1`
+   (5120x1440@120). Change the name if it differs. niri reloads the file live.
+3. **Firefox.** Install the **Pywalfox** extension. Its colours then follow Noctalia; no pip package is needed.
+4. **Zen.** Zen mods (`browser/zen/chrome/zen-themes.css` in `.dotfiles`) aren't copied in. Re-add them in Zen.
 
-### 5. Bring over secrets
+### 5. YubiKey: SSH and GPG
 
-Run these **from the Mac** with the YubiKey plugged in. The new machine's sshd accepts only
-that key:
-
-```sh
-NEW=joydeep@<new-machine-ip>
-alias sshnew='ssh -i ~/.ssh/defyjoy'    # the YubiKey-backed key
-
-# SSH keys (add whichever other keys you need to the list)
-scp -i ~/.ssh/defyjoy -p ~/.ssh/{defyjoy,proxmox}{,.pub} $NEW:.ssh/
-sshnew $NEW git-use defyjoy              # point github.com at the defyjoy key
-
-# Private SSH hosts (home lab etc.) that stay out of git: put Host blocks in ~/.ssh/config.local
-scp -i ~/.ssh/defyjoy ~/.ssh/config.local $NEW:.ssh/config.local   # or create it by hand there
-
-# kubeconfigs
-scp -i ~/.ssh/defyjoy -r ~/.kube $NEW:
-```
-
-Example `~/.ssh/config.local`:
-
-```
-Host PVE01
-  HostName 192.168.0.x
-  User root
-  IdentityFile ~/.ssh/proxmox
-```
-
-**GPG signing key** (`0B60C9CA8BC08E22`): it lives on the YubiKey, so only the public half has
-to move. Then point gpg at the card:
+These steps follow the `.dotfiles` README.
 
 ```sh
-gpg --export --armor 0B60C9CA8BC08E22 | sshnew $NEW gpg --import
-# then, on the new machine with the YubiKey plugged in:
+# GitHub SSH = FIDO2 resident key on the YubiKey (PIN + touch). Writes ~/.ssh/id_ed25519_sk_rk_defyjoy
+cd ~/.ssh && ssh-keygen -K
+ssh -T git@github.com                        # "Hi defyjoy!"
+
+# GPG = OpenPGP card. Import the public key (it isn't on a keyserver), then trust it.
+# On the Mac:  gpg --export --armor 0B60C9CA8BC08E22 > pubkey.asc   then copy it over
+gpg --import pubkey.asc
 gpg --card-status
-echo test | gpg --clearsign >/dev/null && echo "signing works"
+gpg --edit-key 0B60C9CA8BC08E22 trust        # choose 5 (ultimate), then quit
+ssh-add -L                                   # the card's auth key, via gpg-agent
 ```
 
-**Then on the new machine:** run `gh auth login`, and `gcloud auth login` / `aws configure` if
-you need them.
+Other keys (e.g. `~/.ssh/proxmox`) and `~/.kube` are copied by hand. `~/.ssh/config` is the editable
+copy from `.dotfiles`, so add private hosts there. Then run `gh auth login`, and `gcloud auth login` /
+`aws configure` if you need them.
 
-### 6. Track the install in git
+### 6. Commit this machine's hardware
 
-`install.sh` rewrote `disko.nix` and `hardware-configuration.nix` for this machine. Commit them
-so later rebuilds match the hardware:
+`install.sh` rewrote `disko.nix`, `hardware-configuration.nix` and (with NVIDIA) `gpu.nix` for this machine. Commit them so
+rebuilds match the hardware:
 
 ```sh
 cd ~/nixos-config
@@ -159,67 +173,75 @@ git remote set-url origin git@github.com:defyjoy/nixos-config.git
 git add -A && git commit -m "hardware: <machine name>" && git push
 ```
 
+### 7. Verify
+
+```sh
+niri validate                                        # config parses
+niri msg outputs                                     # G9 at 5120x1440@119.999 on DP-1
+noctalia msg theme-mode-get                          # light 08:00-17:00, dark otherwise
+resolvectl status | grep -E 'DNSOverTLS|Current DNS' # +DNSOverTLS, 1.1.1.1#cloudflare-dns.com
+snapper -c home list | head                          # hourly /home snapshots, no root needed
+nvidia-smi --query-gpu=pstate --format=csv,noheader  # P0/P2 under load (NVIDIA only)
+ssh -T git@github.com && gpg --card-status
+```
+
+Then look for: translucent Alacritty/Firefox with blur, gradient focus ring, Noctalia bar and dock,
+and colours that match the wallpaper.
+
 ---
 
 ## Day-to-day
 
 ```sh
 cd ~/nixos-config
-# edit configuration.nix (system) or home.nix (packages, shell, dotfiles), then:
+# system: configuration.nix / desktop.nix    user: home.nix / home-desktop.nix
 sudo nixos-rebuild switch --flake .#nixos
 
-# update all inputs (nixpkgs, home-manager, disko):
-nix flake update && sudo nixos-rebuild switch --flake .#nixos
-
+nix flake update && sudo nixos-rebuild switch --flake .#nixos   # update everything
 git commit -am "..." && git push
 ```
 
-**Rolling back:** every rebuild adds a boot menu entry, so pick an older one at boot. Or run
-`sudo nixos-rebuild switch --rollback`. Garbage collection runs weekly and keeps 14 days.
+**Rolling back:** every rebuild adds a boot menu entry, so pick an older one at boot, or run
+`sudo nixos-rebuild switch --rollback`. `/home` also has hourly snapper snapshots (5 hourly, 7 daily).
+Garbage collection runs weekly and keeps 14 days.
 
-**Installing on a second machine:** run steps 1–6 again. Each machine's
-`hardware-configuration.nix` is different, so give each one its own branch or host directory.
+**Changing desktop configs:** edit the live file (e.g. `~/.config/niri/cfg/keybinds.kdl`) and it applies
+at once. To keep the change, copy it into the `.dotfiles` repo and push. A plain rebuild never
+overwrites your edits.
+
+## Gotchas (carried over from `.dotfiles`)
+
+- Keep niri **2.5px corners and gaps 8**. Alacritty stays dark-only, and its `import = [...]` stays multi-line.
+- Edit colours in `~/.config/noctalia/templates/`, never in the generated files (`niri/cfg/colors.kdl`,
+  `alacritty/themes/noctalia-*.toml`, `gtk-*/noctalia*.css`, `qt*ct/colors`, the btop theme, the starship palette).
+- Quit Solaar before editing its config, or it overwrites the file on exit.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| `Not booted in UEFI mode` | Enable UEFI and disable CSM/legacy in firmware. On Proxmox, set BIOS to OVMF. |
-| Boots to firmware or "no bootable device" | Secure Boot is on, or (Proxmox) the EFI disk had pre-enrolled keys. Turn it off or recreate the EFI disk. |
-| `nixos-install` runs out of space or memory | It builds in the target's `/mnt`, so give the VM at least 4 GB RAM and a 40 GB disk. |
-| `Permission denied (publickey)` from the Mac | Use `ssh -i ~/.ssh/defyjoy`, and touch the YubiKey when it blinks. |
-| A dotfile didn't change after a rebuild | `systemctl status home-manager-joydeep`. Existing files get backed up as `*.hm-bak` the first time. |
-| Can't save settings in Zed | `~/.config/zed/settings.json` is managed. Edit `files/zed-settings.json` and rebuild. |
+| `Not booted in UEFI mode` | Enable UEFI and disable CSM/legacy. On Proxmox, set BIOS to OVMF. |
+| Boots to firmware / no bootable device | Secure Boot is on, or the Proxmox EFI disk has pre-enrolled keys. |
+| NVIDIA enabled or missing on the wrong machine | Edit `gpu.nix`: `{ }` for none, `{ imports = [ ./nvidia.nix ]; }` for NVIDIA. Then rebuild. |
+| No wallpaper, default colours | `~/Pictures/Wallpapers/uwshot-1341.jpg` is missing (step 4.1). |
+| A config didn't change after `nix flake update dotfiles` | Rebuilds only add missing files. Run `dotfiles-apply`. |
+| `ssh -T git@github.com` fails | Run `ssh-keygen -K` in `~/.ssh` (step 5), then touch the key when it blinks. |
+| A home-manager file conflicts | `systemctl status home-manager-defyjoy`. Existing files get backed up as `*.hm-bak` once. |
 
-## What came over from the Mac
+## What's different from CachyOS
 
-| Mac | NixOS |
-|-----|-------|
-| zinit + oh-my-zsh snippets | home-manager `oh-my-zsh` with the same plugin list, minus `dnf` and `command-not-found` |
-| fast-syntax-highlighting, autosuggestions | `zsh-syntax-highlighting`, `zsh-autosuggestions` |
-| `~/.zshrc` aliases, eza zstyles, kubeconfig merge | `home.nix` → `programs.zsh` |
-| starship, tmux, ghostty, zed configs | `files/`, linked into place |
-| atuin (`enter_accept`), zoxide, autojump, fzf, bat | `programs.*` in `home.nix` |
-| `~/.gitconfig` + `~/.gitconfig-defyjoy` includeIf signing | `programs.git` (`settings` + `includes`) |
-| `~/.ssh/config` GitHub profiles | `programs.ssh.settings`; `git-use` works as before |
-| `~/.ssh/config` private hosts | `~/.ssh/config.local` (not in git) |
-| nvm (lazy-loaded) | `nodejs` from nixpkgs (`nix shell nixpkgs#nodejs_20` for another version) |
-| tfenv | `terraform` from nixpkgs |
-| OrbStack | Docker (`joydeep` is in the `docker` group) |
-| brew CLI tools | `home.packages` |
-| Ghostty, Zed, Chrome, Slack, Firefox, DBeaver, Calibre, Claude Code | `home.packages` / `programs.firefox` (Chrome and Slack only on x86_64) |
-
-**Not ported (macOS-only or no Linux build):** iTerm2, Raycast, Rectangle Pro, Bartender,
-BetterMouse, Arc, Dia, ForkLift, Shottr, Macs Fan Control, PureMac, Notion, WhatsApp, Crest,
-nyaterm, aside, langflow, yacreader, pinentry-mac, whalebrew, and the brew taps ziggity, sofka,
-mole and github-keygen.
-
-**Notes**
-- Files home-manager manages (`~/.ssh/config`, `~/.config/zed/settings.json`, etc.) are
-  read-only symlinks into the Nix store. Change them here and rebuild.
-- Zed installs the themes your settings use (Dayfox/Nordfox, Catppuccin icons) once you add those
-  extensions in Zed.
-- Ghostty ignores the `macos-*` keys on Linux, and GNOME doesn't do background blur.
-- To change the hostname, timezone or desktop, edit `configuration.nix`. For KDE, replace the
-  GNOME/GDM lines with `services.desktopManager.plasma6.enable` and
-  `services.displayManager.sddm.enable`.
+- **Kept:**
+  - niri 26.04 (validated against your config) and Noctalia 5.6.
+  - cosmic-greeter, fish with the CachyOS fish config, Alacritty, and Firefox with userChrome/user.js.
+  - Zen, Solaar, Steam, Docker + NVIDIA container toolkit.
+  - Snapper on `/home`, DNS-over-TLS, the `en_IN` locale, and PipeWire.
+  - Inter/Noto/JetBrains/Meslo fonts, the Papirus icons and the Bibata cursor.
+- **Replaced:**
+  - The CachyOS kernel with the NixOS default kernel.
+  - Limine with systemd-boot. NixOS generations stand in for limine-snapper-sync root snapshots.
+  - ufw with the NixOS firewall, and the nmcli DNS step with resolved `Domains=~.`.
+- **Dropped:** CachyOS tools (hello, kernel manager, mirror tools, chwd), the COSMIC desktop leftovers,
+  `devin-desktop`, `llmfit`, and the extra cursor themes (BreezeX, Oreo).
+- **From the Mac** (`home.nix`): CLI tools, zsh + oh-my-zsh (fish is the login shell, run `zsh` for
+  this), signed git commits, tmux, Ghostty, Zed, DBeaver, Calibre, and Chrome/Slack on x86_64. `git-use`
+  is gone; the YubiKey resident key replaces it.

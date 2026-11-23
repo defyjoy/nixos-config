@@ -4,7 +4,7 @@
 set -euo pipefail
 
 DISK="${1:-}"
-USER_NAME=joydeep
+USER_NAME=defyjoy
 REPO="$(cd "$(dirname "$0")" && pwd)"
 TARGET="/mnt/home/$USER_NAME/nixos-config"
 
@@ -33,6 +33,10 @@ nix run github:nix-community/disko/latest -- --yes-wipe-all-disks --mode destroy
 
 echo ">>> Detecting hardware"
 nixos-generate-config --no-filesystems --show-hardware-config > "$REPO/hardware-configuration.nix"
+if grep -qs 0x10de /sys/bus/pci/devices/*/vendor; then # PCI vendor ID of NVIDIA
+  echo "    NVIDIA GPU found: enabling nvidia.nix"
+  echo '{ imports = [ ./nvidia.nix ]; }' > "$REPO/gpu.nix"
+fi
 
 echo ">>> Installing (this takes a while)"
 mkdir -p "$(dirname "$TARGET")"

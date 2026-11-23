@@ -1,21 +1,13 @@
-# Ported from the macOS setup (brew leaves/casks, ~/.zshrc, ~/.zinit-plugins.zsh, dotfiles).
+# CLI tools, zsh, git and gpg ported from the macOS setup. Desktop configs: home-desktop.nix.
 { lib, pkgs, ... }:
-let
-  github = key: {
-    HostName = "github.com";
-    User = "git";
-    IdentityFile = "~/.ssh/${key}";
-  };
-in
 {
   home.stateVersion = "26.05";
 
   home.packages = with pkgs; [
     # CLI
-    bun coreutils eza gh git-filter-repo go go-task gpg-tui kubernetes-helm kubecolor
+    bat bun coreutils eza gh git-filter-repo go go-task gpg-tui kubernetes-helm kubecolor
     kubectx kubectl lazyssh micro nodejs llama-cpp openbao qemu terraform terragrunt
     yubikey-manager uv google-cloud-sdk awscli2 argocd tldr tmux postgresql claude-code
-    (writeShellScriptBin "git-use" (builtins.readFile ./files/git-use))
 
     # GUI
     ghostty zed-editor dbeaver-bin calibre
@@ -55,7 +47,6 @@ in
       tsg = "terragrunt stack generate";
       tsa = "terragrunt stack run apply --non-interactive";
       cat = "bat";
-      gu = "git-use";
     };
     initContent = ''
       # Merge kubeconfigs in ~/.kube (config, *.yaml, *.yml only)
@@ -65,8 +56,7 @@ in
     '';
   };
 
-  programs.starship.enable = true;
-  xdg.configFile."starship.toml".source = ./files/starship.toml;
+  programs.starship.enable = true; # config: ~/.config/starship.toml from .dotfiles
   programs.atuin = {
     enable = true;
     settings.enter_accept = true;
@@ -74,7 +64,6 @@ in
   programs.zoxide.enable = true;
   programs.autojump.enable = true;
   programs.fzf.enable = true;
-  programs.bat.enable = true;
 
   home.file.".tmux.conf".source = ./files/tmux.conf;
   xdg.configFile."ghostty/config".source = ./files/ghostty.config;
@@ -107,20 +96,12 @@ in
   };
 
   programs.gpg.enable = true;
+  # Same as .dotfiles home/.gnupg/gpg-agent.conf: gpg-agent is the ssh-agent (YubiKey card key)
   services.gpg-agent = {
     enable = true;
-    pinentry.package = pkgs.pinentry-gnome3;
-  };
-
-  programs.ssh = {
-    enable = true;
-    enableDefaultConfig = false;
-    # Private hosts (home lab etc.) live in ~/.ssh/config.local, outside git.
-    includes = [ "config.local" ];
-    settings = {
-      # github.com points at a symlink that `git-use <profile>` swaps
-      "github.com" = github "github-active";
-      defyjoy = github "defyjoy";
-    };
+    enableSshSupport = true;
+    pinentry.package = pkgs.pinentry-qt;
+    defaultCacheTtl = 600;
+    maxCacheTtl = 7200;
   };
 }
