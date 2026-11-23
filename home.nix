@@ -6,12 +6,16 @@
   home.packages = with pkgs; [
     # CLI
     bat bun coreutils eza gh git-filter-repo go go-task gpg-tui kubernetes-helm kubecolor
-    kubectx kubectl lazyssh micro nodejs llama-cpp openbao qemu terraform terragrunt
-    yubikey-manager uv google-cloud-sdk awscli2 argocd tldr tmux postgresql claude-code
+    kubectx kubectl lazyssh micro nodejs llama-cpp openbao terraform terragrunt
+    yubikey-manager uv awscli2 argocd tldr tmux postgresql claude-code
 
-    # GUI
-    ghostty zed-editor dbeaver-bin calibre
-  ] ++ lib.optionals stdenv.hostPlatform.isx86_64 [ google-chrome slack ]; # x86_64-only builds
+    # GUI (terminal is Alacritty, from desktop.nix)
+    zed-editor
+  ] ++ lib.optionals stdenv.hostPlatform.isx86_64 [
+    # x86_64 Linux only; skipped on the M1 Ultra (aarch64). Chrome/Slack have no aarch64 build,
+    # the rest are heavy extras (~5 GB) not wanted there.
+    google-chrome slack qemu lima google-cloud-sdk dbeaver-bin calibre
+  ];
 
   home.sessionPath = [ "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/go/bin" ];
   home.sessionVariables.COLORTERM = "truecolor";
@@ -66,7 +70,6 @@
   programs.fzf.enable = true;
 
   home.file.".tmux.conf".source = ./files/tmux.conf;
-  xdg.configFile."ghostty/config".source = ./files/ghostty.config;
   # Read-only symlink: change Zed settings here, not in the Zed UI.
   xdg.configFile."zed/settings.json".source = ./files/zed-settings.json;
 

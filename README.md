@@ -16,7 +16,7 @@ choose a password) and then runs unattended.
 | `desktop.nix` | Desktop system side: niri, Noctalia, cosmic-greeter, PipeWire, Solaar, Steam, fonts, cursors/icons |
 | `nvidia.nix` | RTX 4070 Super (open driver, PowerMizer fix, container toolkit). Only used when `gpu.nix` imports it |
 | `gpu.nix` | Empty by default; `install.sh` makes it import `nvidia.nix` if the machine has an NVIDIA GPU |
-| `home.nix` | From the Mac: CLI packages, zsh + oh-my-zsh, git signing, gpg-agent, tmux/ghostty/zed |
+| `home.nix` | From the Mac: CLI packages, zsh + oh-my-zsh, git signing, gpg-agent, tmux, zed |
 | `home-desktop.nix` | Desktop user side: puts the `.dotfiles` `home/` tree in place, plus Firefox chrome, gsettings, Zen and desktop apps |
 | `disko.nix` | GPT, 1 GB EFI `/boot`, btrfs subvolumes `@ @home @home-snapshots @nix @log` (zstd), zram swap |
 | `hardware-configuration.nix` | Placeholder; `install.sh` regenerates it on the target |
@@ -243,5 +243,6 @@ overwrites your edits.
 - **Dropped:** CachyOS tools (hello, kernel manager, mirror tools, chwd), the COSMIC desktop leftovers,
   `devin-desktop`, `llmfit`, and the extra cursor themes (BreezeX, Oreo).
 - **From the Mac** (`home.nix`): CLI tools, zsh + oh-my-zsh (fish is the login shell, run `zsh` for
-  this), signed git commits, tmux, Ghostty, Zed, DBeaver, Calibre, and Chrome/Slack on x86_64. `git-use`
+  this), signed git commits, tmux and Zed. On x86_64 only (skipped on the M1 Ultra / aarch64): Chrome, Slack,
+  qemu, lima, google-cloud-sdk, DBeaver and Calibre. Ghostty is dropped; Alacritty is the terminal. `git-use`
   is gone; the YubiKey resident key replaces it.

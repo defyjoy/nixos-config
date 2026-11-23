@@ -35,7 +35,7 @@ in
         --backup --backup-dir="$HOME/.dotfiles-backup/$(date +%F-%H%M%S)" ${dotfiles}/ "$HOME/"
     '')
     inputs.zen-browser.packages.${stdenv.hostPlatform.system}.default
-    btop fastfetch ripgrep duf meld vlc lima hwinfo unzip wget rsync
+    btop fastfetch ripgrep duf meld vlc hwinfo unzip wget rsync
   ];
 
   # .dotfiles gsettings.txt
